@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#14532D">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Patra Redirect</title>
+  <link rel="icon" href="assets/logo.png" type="image/png">
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+
+  <!-- Sambungan awal ke server agar redirect lebih cepat -->
+  <link rel="preconnect" href="https://script.google.com">
+  <link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    /* Terapkan tema sebelum render agar tidak berkedip */
+    (function () {
+      try {
+        var t = localStorage.getItem('rnfc-theme');
+        if (!t && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark';
+        document.documentElement.setAttribute('data-theme', t || 'light');
+      } catch (e) {}
+    })();
+  </script>
+  <script src="js/config.js?v=2.0.0"></script>
+  <script>
+    /* Minta data kartu SEKARANG & langsung redirect instan saat respons diterima */
+    (function () {
+      try {
+        var q = new URLSearchParams(location.search);
+        var id = (q.get('id') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        var aksi = q.get('aksi');
+        if (id.length >= 6 && id.length <= 12 && /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(GAS_URL)) {
+          var u = GAS_URL + '?action=card&id=' + id + (aksi === 'kelola' ? '&log=0' : '');
+          window.__cardP = fetch(u).then(function (r) { return r.text(); })
+            .then(function (t) {
+              try {
+                var res = JSON.parse(t);
+                /* INSTANT REDIRECT: langsung alihkan tanpa jeda / countdown bila kartu terhubung */
+                if (aksi !== 'kelola' && res && res.success && res.data && res.data.card && res.data.card.status === 'terhubung' && /^https?:\/\//i.test(res.data.card.url)) {
+                  window.location.replace(res.data.card.url);
+                }
+                return res;
+              } catch (e) { return null; }
+            })
+            .catch(function () { return null; });
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="css/style.css?v=2.0.0">
+</head>
+<body>
+  <noscript><p style="padding:24px;font-family:sans-serif">Aplikasi ini membutuhkan JavaScript. Aktifkan JavaScript lalu muat ulang halaman.</p></noscript>
+
+  <div id="boot" class="boot" role="status" aria-live="polite"><span class="spin"></span><span class="muted">Memuat…</span></div>
+
+  <div id="publicRoot" hidden></div>
+  <div id="loginRoot" hidden></div>
+  <div id="staffRoot" hidden></div>
+  <div id="drawerRoot"></div>
+  <div id="modalRoot" hidden></div>
+  <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
+
+  <script src="js/api.js?v=2.0.0"></script>
+  <script src="js/core.js?v=2.0.0"></script>
+  <script src="js/public.js?v=2.0.0"></script>
+  <script src="js/staff.js?v=2.0.0"></script>
+  <script src="js/reports.js?v=2.0.0"></script>
+  <script src="js/app.js?v=2.0.0"></script>
+</body>
+</html>
