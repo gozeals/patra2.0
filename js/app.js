@@ -16,27 +16,37 @@ async function loadConfig() {
 const RESTORE_WAIT_MS = 15000;
 
 /* Mengembalikan true HANYA bila backend memverifikasi token dan dashboard sudah ditampilkan.
-   Tanpa token, token ditolak, gangguan jaringan/server, atau melewati batas waktu → false (portal yang tampil). */
+   Selain itu → false (portal yang tampil):
+   - tanpa token
+   - AUTH (backend menyatakan sesi tidak valid) → token DIHAPUS
+   - NET / BADRESP / SECURITY_UNVERIFIED / gangguan lain → token DIPERTAHANKAN agar bisa dicoba lagi dengan refresh
+   - lewat RESTORE_WAIT_MS → permintaan DIBATALKAN: jawabannya nanti (valid atau tidak) diabaikan sepenuhnya,
+     tidak mengubah tampilan, state, maupun token. */
 async function restoreSession() {
   let t = null; try { t = sessionStorage.getItem('rnfc-tok'); } catch (e) {}
   if (!t) return false;
-  const check = rpc('staffBootstrap', [t]).then(function (r) {   /* S.token masih kosong → tidak memicu "sesi berakhir" */
+  let cancelled = false, timer;
+  /* apiPost langsung (bukan rpc): jawaban AUTH dari pemeriksaan ini tidak boleh memicu forceLogout() global,
+     yang bisa mengeluarkan sesi BARU bila pengguna sudah login manual setelah timeout. */
+  const check = apiPost('bootstrap', { token: t }).then(function (r) {
+    if (cancelled) return false;                                  /* jawaban terlambat: tidak punya hak mengubah apa pun */
     if (!r || !r.success) {
-      try { sessionStorage.removeItem('rnfc-tok'); } catch (e) {}
-      if (r && r.code !== 'AUTH') toast('warn', 'Sesi staf tidak dapat dipulihkan', (r && r.message) || 'Silakan masuk kembali.');
+      if (r && r.code === 'AUTH') { try { sessionStorage.removeItem('rnfc-tok'); } catch (e) {} return false; }
+      toast('warn', 'Sesi staf belum dapat diverifikasi', ((r && r.message) || 'Terjadi gangguan.') + ' Muat ulang halaman setelah koneksi pulih untuk masuk kembali.');
       return false;
     }
     if (S.view && S.view !== 'portal' && S.view !== 'login') return false;   /* pengguna sudah pindah halaman */
     S.token = t; applyBoot(r.data); startAuto();
     go(S.role === 'master' ? 'overview' : 'cards');
     return true;
-  });
-  let timer;
-  const timeout = new Promise(function (res) { timer = setTimeout(function () { res('timeout'); }, RESTORE_WAIT_MS); });
+  }).catch(function () { if (!cancelled) S.token = null; return false; });   /* galat tak terduga → tetap ke portal */
+  /* Penanda pembatalan dipasang DI DALAM callback timer, sebelum hasil race diteruskan, sehingga
+     jawaban yang datang setelahnya pasti melihat cancelled = true (tidak ada celah race). */
+  const timeout = new Promise(function (res) { timer = setTimeout(function () { cancelled = true; res('timeout'); }, RESTORE_WAIT_MS); });
   const res = await Promise.race([check, timeout]);
   clearTimeout(timer);
   if (res === 'timeout') {
-    toast('warn', 'Server lambat merespons', 'Sesi staf belum dapat diverifikasi. Anda akan dialihkan otomatis bila berhasil, atau silakan masuk kembali.');
+    toast('warn', 'Server lambat merespons', 'Sesi staf belum dapat diverifikasi. Muat ulang halaman setelah koneksi membaik, atau masuk kembali.');
     return false;
   }
   return res === true;
