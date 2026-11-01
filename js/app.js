@@ -59,7 +59,8 @@ async function restoreSession() {
     loadConfig();
     /* Layar loading tetap tampil selama sesi staf diperiksa; portal hanya muncul bila tidak ada sesi yang valid */
     const restored = await restoreSession();
-    if (!restored && !S.token) go('portal');
+    /* Halaman login petugas hanya dibuka lewat ?akses=petugas; tombolnya tidak lagi tampil di portal konsumen */
+    if (!restored && !S.token) go(QS.get('akses') === 'petugas' ? 'login' : 'portal');
     hideBoot();
     return;
   }

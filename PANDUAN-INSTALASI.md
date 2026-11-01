@@ -113,7 +113,7 @@ Situs aktif di: `https://USERNAME.github.io/NAMA-REPO/`
 ---
 
 ## BAGIAN D — Hubungkan & atur
-1. Buka `https://USERNAME.github.io/NAMA-REPO/` → **Login Petugas** → `master` + password dari A2.
+1. Buka halaman login petugas `https://USERNAME.github.io/NAMA-REPO/?akses=petugas` → masuk dengan `master` + password dari A2. (Portal konsumen di alamat tanpa parameter tidak lagi menampilkan tombol Login Petugas — bagikan alamat `?akses=petugas` hanya kepada Master/Admin.)
 2. Menu **Pengaturan**: tempel **Google Places API key** (Cloud Console: aktifkan *Places API (New)* + penagihan; batasi key ke Places API (New) saja), isi **WhatsApp admin**, lalu **Simpan**.
 3. Alamat situs terdeteksi otomatis. Kolom *Override alamat situs* hanya diisi bila memakai domain sendiri.
 

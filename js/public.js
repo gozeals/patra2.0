@@ -283,8 +283,7 @@ VIEWS.portal = function () {
     '<input id="ptCode" class="inp has-ico mono" style="text-transform:uppercase;letter-spacing:.08em" maxlength="12" autocapitalize="characters" autocomplete="off" placeholder="K7M2QX9A" value="' + esc(S.ownerCode || '') + '" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,\'\')"></div>' +
     '<p class="hint">Lihat kode di kartu atau di layar sukses registrasi.</p></div>' +
     pwField('ptPin', 'PIN keamanan (4-6 digit)', '', '') +
-    '<button id="ptBtn" type="submit" class="btn btn-primary btn-block mt24">Lanjut ke Pengaturan Kartu ' + ico('arrowR', 18) + '</button></form>' +
-    '<div class="center"><button class="link-btn" onclick="go(\'login\')">Login Petugas</button></div>');
+    '<button id="ptBtn" type="submit" class="btn btn-primary btn-block mt24">Lanjut ke Pengaturan Kartu ' + ico('arrowR', 18) + '</button></form>');
 };
 async function portalSubmit() {
   const code = $('ptCode').value.trim().toUpperCase(), pin = $('ptPin').value;
