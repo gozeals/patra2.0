@@ -319,6 +319,8 @@ async function resetPw(u) {
   setBusy('rpBtn', true, 'Menyimpan…');
   const r = await rpc('resetUserPassword', [S.token, u, $('rpP').value]);
   setBusy('rpBtn', false);
+  /* REVOKE_WARN: kata sandi SUDAH direset, hanya tahap akhir pencabutan yang gagal disimpan permanen */
+  if (!r.success && r.code === 'REVOKE_WARN') { closeModal(); toast('warn', 'Kata sandi sudah direset', r.message); return; }
   if (!r.success) { toast('err', 'Gagal reset kata sandi', r.message); return; }
   S.users = r.data; closeModal(); toast('ok', 'Kata sandi direset', 'Bagikan kata sandi baru ke ' + u + ' secara aman.');
 }
