@@ -12,22 +12,45 @@ async function loadConfig() {
   const r = await apiGet({ action: 'config' });
   if (r && r.success && r.data) setWa(r.data.wa);
 }
+/* Batas tunggu pemulihan sesi saat boot. Lewat dari ini portal ditampilkan agar tidak terjebak di layar loading. */
+const RESTORE_WAIT_MS = 15000;
+
+/* Mengembalikan true HANYA bila backend memverifikasi token dan dashboard sudah ditampilkan.
+   Tanpa token, token ditolak, gangguan jaringan/server, atau melewati batas waktu → false (portal yang tampil). */
 async function restoreSession() {
   let t = null; try { t = sessionStorage.getItem('rnfc-tok'); } catch (e) {}
-  if (!t) return;
-  const r = await rpc('staffBootstrap', [t]);               /* S.token masih kosong → tidak memicu "sesi berakhir" */
-  if (!r.success) { try { sessionStorage.removeItem('rnfc-tok'); } catch (e) {} return; }
-  if (S.view !== 'portal' && S.view !== 'login') return;
-  S.token = t; applyBoot(r.data); startAuto();
-  go(S.role === 'master' ? 'overview' : 'cards');
+  if (!t) return false;
+  const check = rpc('staffBootstrap', [t]).then(function (r) {   /* S.token masih kosong → tidak memicu "sesi berakhir" */
+    if (!r || !r.success) {
+      try { sessionStorage.removeItem('rnfc-tok'); } catch (e) {}
+      if (r && r.code !== 'AUTH') toast('warn', 'Sesi staf tidak dapat dipulihkan', (r && r.message) || 'Silakan masuk kembali.');
+      return false;
+    }
+    if (S.view && S.view !== 'portal' && S.view !== 'login') return false;   /* pengguna sudah pindah halaman */
+    S.token = t; applyBoot(r.data); startAuto();
+    go(S.role === 'master' ? 'overview' : 'cards');
+    return true;
+  });
+  let timer;
+  const timeout = new Promise(function (res) { timer = setTimeout(function () { res('timeout'); }, RESTORE_WAIT_MS); });
+  const res = await Promise.race([check, timeout]);
+  clearTimeout(timer);
+  if (res === 'timeout') {
+    toast('warn', 'Server lambat merespons', 'Sesi staf belum dapat diverifikasi. Anda akan dialihkan otomatis bila berhasil, atau silakan masuk kembali.');
+    return false;
+  }
+  return res === true;
 }
 
 (async function boot() {
   if (!gasReady()) { go('setup'); hideBoot(); return; }
 
   if (!INIT.code) {                                         /* tanpa kode kartu → portal kelola */
-    go('portal'); hideBoot();
-    loadConfig(); restoreSession();
+    loadConfig();
+    /* Layar loading tetap tampil selama sesi staf diperiksa; portal hanya muncul bila tidak ada sesi yang valid */
+    const restored = await restoreSession();
+    if (!restored && !S.token) go('portal');
+    hideBoot();
     return;
   }
 
