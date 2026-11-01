@@ -130,8 +130,15 @@ async function changePw() {
   setBusy('pwBtn', true, 'Menyimpan…');
   const r = await rpc('changeOwnPassword', [S.token, o, n]);
   setBusy('pwBtn', false);
+  /* REVOKE_WARN    : kata sandi SUDAH diganti, sesi sudah dicabut, tapi tahap akhir gagal disimpan permanen
+     PW_SAVE_FAIL   : kata sandi TIDAK diganti / belum pasti, tetapi semua sesi sudah dikeluarkan
+     lainnya (mis. REVOKE_FAIL, kata sandi lama salah): tidak ada yang berubah → tetap di dashboard */
+  if (!r.success && r.code === 'REVOKE_WARN') { closeModal(); resetStaffState(); go('login'); toast('warn', 'Kata sandi sudah diganti', r.message); return; }
+  if (!r.success && r.code === 'PW_SAVE_FAIL') { closeModal(); resetStaffState(); go('login'); toast('err', 'Kata sandi belum tersimpan', r.message); return; }
   if (!r.success) { toast('err', 'Gagal mengganti kata sandi', r.message); return; }
-  closeModal(); toast('ok', 'Kata sandi diganti', 'Gunakan kata sandi baru saat login berikutnya.');
+  /* Server sudah mencabut semua sesi akun ini (termasuk tab ini) → kembali ke halaman login */
+  closeModal(); resetStaffState(); go('login');
+  toast('ok', 'Kata sandi diganti', 'Semua sesi lama sudah dikeluarkan. Silakan masuk kembali dengan kata sandi baru.');
 }
 
 /* ═══════════════ DAFTAR KARTU (W-09) ═══════════════ */
@@ -212,6 +219,10 @@ function dstCell(c) {
 }
 function typeCell(c) { return c.tipe === 'google_review' ? '<span class="row" style="gap:6px">' + ico('star', 16) + 'Google Review</span>' : (c.tipe === 'link_lain' ? '<span class="row" style="gap:6px">' + ico('globe', 16) + 'Link Lain</span>' : '<span class="muted">—</span>'); }
 function waCell(c) { return c.wa ? '<a class="row" style="gap:6px" href="https://wa.me/' + esc(c.wa) + '" target="_blank" rel="noopener" aria-label="Chat WhatsApp pemilik ' + esc(c.code) + '">' + esc(fmtWa(c.wa)) + ' ' + ico('wa', 16) + '</a>' : '<span class="muted">—</span>'; }
+/* Argumen aman untuk handler inline (onclick="fn(ARG)"): dua lapis encoding sesuai konteks.
+   1) JSON.stringify → literal string JavaScript yang valid (kutip, backslash, baris baru di-escape)
+   2) esc()          → aman di dalam atribut HTML berkutip ganda (" menjadi &quot;, dikembalikan browser sebelum JS dijalankan) */
+function jsArg(v) { return esc(JSON.stringify(String(v == null ? '' : v))); }
 function renderCardsTable() {
   const box = $('cardsBox'); if (!box) return;
   const list = filteredCards(), per = 10, pages = Math.max(1, Math.ceil(list.length / per));
@@ -228,11 +239,11 @@ function renderCardsTable() {
         '<td class="dst" data-label="Tujuan">' + dstCell(c) + '</td>' +
         '<td data-label="WhatsApp">' + waCell(c) + '</td><td class="num" data-label="Scan"><b>' + fmtN(c.scans) + '</b></td><td data-label="Terakhir" class="muted">' + relTime(c.lastTs) + '</td>' +
         '<td class="nolabel"><div class="acts">' +
-        '<button class="btn-icon sm" title="Detail & ubah" aria-label="Detail dan ubah kartu ' + esc(c.code) + '" onclick="openDrawer(\'' + c.code + '\')">' + ico('pencil', 18) + '</button>' +
-        '<button class="btn-icon sm" title="' + (dim ? 'Aktifkan' : 'Nonaktifkan') + '" aria-label="' + (dim ? 'Aktifkan' : 'Nonaktifkan') + ' kartu ' + esc(c.code) + '" onclick="quickToggle(\'' + c.code + '\')">' + ico('power', 18) + '</button>' +
-        '<button class="btn-icon sm" title="Reset kartu" aria-label="Reset kartu ' + esc(c.code) + '" ' + (un ? 'disabled style="opacity:.35"' : '') + ' onclick="quickReset(\'' + c.code + '\')">' + ico('reset', 18) + '</button>' +
-        '<button class="btn-icon sm" title="Salin tautan kelola" aria-label="Salin tautan kelola kartu ' + esc(c.code) + '" ' + (un ? 'disabled style="opacity:.35"' : '') + ' onclick="copyLink(\'' + c.code + '\')">' + ico('link', 18) + '</button>' +
-        '<button class="btn-icon sm text-danger" title="Hapus kartu" aria-label="Hapus kartu ' + esc(c.code) + '" onclick="quickDelete(\'' + c.code + '\')">' + ico('trash', 18) + '</button>' +
+        '<button class="btn-icon sm" title="Detail & ubah" aria-label="Detail dan ubah kartu ' + esc(c.code) + '" onclick="openDrawer(' + jsArg(c.code) + ')">' + ico('pencil', 18) + '</button>' +
+        '<button class="btn-icon sm" title="' + (dim ? 'Aktifkan' : 'Nonaktifkan') + '" aria-label="' + (dim ? 'Aktifkan' : 'Nonaktifkan') + ' kartu ' + esc(c.code) + '" onclick="quickToggle(' + jsArg(c.code) + ')">' + ico('power', 18) + '</button>' +
+        '<button class="btn-icon sm" title="Reset kartu" aria-label="Reset kartu ' + esc(c.code) + '" ' + (un ? 'disabled style="opacity:.35"' : '') + ' onclick="quickReset(' + jsArg(c.code) + ')">' + ico('reset', 18) + '</button>' +
+        '<button class="btn-icon sm" title="Salin tautan kelola" aria-label="Salin tautan kelola kartu ' + esc(c.code) + '" ' + (un ? 'disabled style="opacity:.35"' : '') + ' onclick="copyLink(' + jsArg(c.code) + ')">' + ico('link', 18) + '</button>' +
+        '<button class="btn-icon sm text-danger" title="Hapus kartu" aria-label="Hapus kartu ' + esc(c.code) + '" onclick="quickDelete(' + jsArg(c.code) + ')">' + ico('trash', 18) + '</button>' +
         '</div></td></tr>';
     }).join('') + '</tbody></table></div>' + pagerHtml(list.length, S.f.page, per, 'cardsPage');
 }
