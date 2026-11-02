@@ -13,7 +13,7 @@ VIEWS.login = function () {
     '<button id="lgBtn" type="submit" class="btn btn-primary btn-block mt24">Masuk ke Dashboard ' + ico('arrowR', 18) + '</button>' +
     '<div class="note mt16">' + ico('shield', 18) + '<span>Sesi berakhir otomatis setelah <b>60 menit</b> tidak aktif.</span></div>' +
     '<p class="small muted center mt16">Lupa kata sandi? Hubungi Master.</p>' +
-    '<div class="center"><button type="button" class="link-btn" onclick="go(\'portal\')">' + ico('arrowL', 16) + ' Kembali ke portal kartu</button></div></form></div>' +
+    '<div class="center"><button type="button" class="link-btn" onclick="backToPortal()">' + ico('arrowL', 16) + ' Kembali ke portal kartu</button></div></form></div>' +
     '<aside class="hero login-r"><span class="chip" style="background:rgba(255,255,255,.16);color:#fff;align-self:flex-start">' + ico('shield', 14) + ' Master & Admin Workspace</span>' +
     '<h2 style="font:800 34px/42px var(--f-head);letter-spacing:-.02em">Kelola ratusan kartu NFC dalam satu platform terpadu</h2>' +
     '<div class="feat"><span class="tile">' + ico('zap', 20) + '</span><div><b>Pengalihan instan</b><span>Pengunjung langsung diarahkan ke Google Review atau website bisnis, tanpa konfigurasi manual per kartu.</span></div></div>' +
@@ -21,6 +21,17 @@ VIEWS.login = function () {
     '<div class="feat"><span class="tile">' + ico('file', 20) + '</span><div><b>Data di Google Sheets</b><span>Database hemat biaya tanpa server tambahan, dengan laporan PDF siap unduh.</span></div></div></aside></div>';
   const u = $('lgUser'); if (u) u.focus();
 };
+/* Kembali ke portal konsumen: buang hanya akses=petugas dari URL (parameter lain & hash tetap) agar refresh tidak membuka login lagi */
+function backToPortal() {
+  try {
+    const u = new URL(location.href);
+    if (u.searchParams.get('akses') === 'petugas') {
+      u.searchParams.delete('akses');
+      history.replaceState(history.state, '', u.pathname + u.search + u.hash);
+    }
+  } catch (e) {}
+  go('portal');
+}
 async function loginSubmit() {
   const u = $('lgUser').value.trim(), p = $('lgPass').value;
   const box = $('loginErr');
