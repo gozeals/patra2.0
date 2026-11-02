@@ -296,6 +296,8 @@ async function toggleUser(username, aktif) {
   S.pending++; const r = await rpc('setUserActive', [S.token, username, aktif]); S.pending--;
   /* REVOKE_WARN: akun SUDAH nonaktif di server, tetapi pencabutan sesi belum tuntas → jangan kembalikan ke "aktif" */
   if (!r.success && r.code === 'REVOKE_WARN') { await revokeWarned(username, r.message); return; }
+  /* STATUS_UNVERIFIED: status akun di server belum pasti tersimpan (sesi sudah dicabut) → jangan rollback, cek ulang ke server */
+  if (!r.success && r.code === 'STATUS_UNVERIFIED') { await statusUnverified(r.message); return; }
   if (!r.success) { S.users = prev; drawSettings(); toast('err', 'Perubahan dibatalkan', r.message); return; }
   S.users = r.data; drawSettings(); toast('ok', aktif ? 'Akun diaktifkan' : 'Akun dinonaktifkan', username);
 }
@@ -303,9 +305,20 @@ async function revokeWarned(username, msg) {
   S.users.forEach(function (u) { if (u.username === username) u.aktif = false; }); drawSettings();
   toast('warn', 'Akun dinonaktifkan, sesi belum tentu tercabut', 'Jangan aktifkan akun ini untuk mengulang.');
   /* Muat ulang status akun dari server; bila gagal, tetap tampilkan nonaktif sesuai jawaban server */
-  const b = await rpc('staffBootstrap', [S.token]);
-  if (b && b.success && b.data && Array.isArray(b.data.users)) { S.users = b.data.users; drawSettings(); }
+  await reloadUsers();
   confirmBox({ title: 'Pencabutan sesi belum tuntas', text: msg, okText: 'Ulangi pencabutan', onOk: function () { toggleUser(username, false); } });
+}
+async function statusUnverified(msg) {
+  toast('warn', 'Status akun belum dapat dipastikan', 'Periksa status akun sebelum mengambil tindakan berikutnya.');
+  const ok = await reloadUsers();
+  confirmBox({ title: 'Status akun belum dapat dipastikan', okText: 'Muat ulang status',
+    text: msg + (ok ? ' Tabel sudah dimuat ulang dari server.' : ' Status terbaru GAGAL dimuat dari server; status di tabel belum tentu benar.'),
+    onOk: function () { reloadUsers().then(function (done) { if (!done) toast('err', 'Status akun gagal dimuat', 'Muat ulang halaman lalu periksa kembali.'); }); } });
+}
+async function reloadUsers() {
+  const b = await rpc('staffBootstrap', [S.token]);
+  if (b && b.success && b.data && Array.isArray(b.data.users)) { S.users = b.data.users; drawSettings(); return true; }
+  return false;
 }
 function addAdminAsk() {
   openModal('<h2 class="h2" id="mdT">Tambah Admin Baru</h2><div class="field"><label class="lbl" for="nuU">Username</label><input id="nuU" data-af class="inp" autocomplete="off" autocapitalize="none" placeholder="mis. budi.operasional"></div>' +
