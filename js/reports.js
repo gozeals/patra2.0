@@ -298,6 +298,8 @@ async function toggleUser(username, aktif) {
   if (!r.success && r.code === 'REVOKE_WARN') { await revokeWarned(username, r.message); return; }
   /* STATUS_UNVERIFIED: status akun di server belum pasti tersimpan (sesi sudah dicabut) → jangan rollback, cek ulang ke server */
   if (!r.success && r.code === 'STATUS_UNVERIFIED') { await statusUnverified(r.message); return; }
+  /* STATUS_REVOKE_UNVERIFIED: status belum pasti DAN pencabutan sesi belum tuntas → tawarkan ulangi penonaktifan (aktif=false) */
+  if (!r.success && r.code === 'STATUS_REVOKE_UNVERIFIED') { await statusRevokeUnverified(username, r.message); return; }
   if (!r.success) { S.users = prev; drawSettings(); toast('err', 'Perubahan dibatalkan', r.message); return; }
   S.users = r.data; drawSettings(); toast('ok', aktif ? 'Akun diaktifkan' : 'Akun dinonaktifkan', username);
 }
@@ -314,6 +316,18 @@ async function statusUnverified(msg) {
   confirmBox({ title: 'Status akun belum dapat dipastikan', okText: 'Muat ulang status',
     text: msg + (ok ? ' Tabel sudah dimuat ulang dari server.' : ' Status terbaru GAGAL dimuat dari server; status di tabel belum tentu benar.'),
     onOk: function () { reloadUsers().then(function (done) { if (!done) toast('err', 'Status akun gagal dimuat', 'Muat ulang halaman lalu periksa kembali.'); }); } });
+}
+async function statusRevokeUnverified(username, msg) {
+  toast('warn', 'Status & pencabutan sesi belum pasti', 'Sesi akun ini belum tentu tercabut. Jangan aktifkan akun ini.');
+  const ok = await reloadUsers();
+  confirmBox({ title: 'Status akun & pencabutan sesi belum dapat dipastikan', okText: 'Ulangi penonaktifan',
+    text: msg + (ok ? ' Tabel sudah dimuat ulang dari server.' : ' Status terbaru GAGAL dimuat dari server; status di tabel belum tentu benar.'),
+    onOk: function () { retryDeactivate(username); } });
+}
+/* Ulangi penonaktifan + pencabutan: SELALU aktif=false (tidak pernah mengaktifkan), lalu status dimuat ulang dari server */
+async function retryDeactivate(username) {
+  await toggleUser(username, false);
+  await reloadUsers();
 }
 async function reloadUsers() {
   const b = await rpc('staffBootstrap', [S.token]);
