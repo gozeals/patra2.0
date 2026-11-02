@@ -294,8 +294,18 @@ async function toggleUser(username, aktif) {
   const prev = S.users.map(function (u) { return Object.assign({}, u); });
   S.users.forEach(function (u) { if (u.username === username) u.aktif = aktif; }); drawSettings();
   S.pending++; const r = await rpc('setUserActive', [S.token, username, aktif]); S.pending--;
+  /* REVOKE_WARN: akun SUDAH nonaktif di server, tetapi pencabutan sesi belum tuntas → jangan kembalikan ke "aktif" */
+  if (!r.success && r.code === 'REVOKE_WARN') { await revokeWarned(username, r.message); return; }
   if (!r.success) { S.users = prev; drawSettings(); toast('err', 'Perubahan dibatalkan', r.message); return; }
   S.users = r.data; drawSettings(); toast('ok', aktif ? 'Akun diaktifkan' : 'Akun dinonaktifkan', username);
+}
+async function revokeWarned(username, msg) {
+  S.users.forEach(function (u) { if (u.username === username) u.aktif = false; }); drawSettings();
+  toast('warn', 'Akun dinonaktifkan, sesi belum tentu tercabut', 'Jangan aktifkan akun ini untuk mengulang.');
+  /* Muat ulang status akun dari server; bila gagal, tetap tampilkan nonaktif sesuai jawaban server */
+  const b = await rpc('staffBootstrap', [S.token]);
+  if (b && b.success && b.data && Array.isArray(b.data.users)) { S.users = b.data.users; drawSettings(); }
+  confirmBox({ title: 'Pencabutan sesi belum tuntas', text: msg, okText: 'Ulangi pencabutan', onOk: function () { toggleUser(username, false); } });
 }
 function addAdminAsk() {
   openModal('<h2 class="h2" id="mdT">Tambah Admin Baru</h2><div class="field"><label class="lbl" for="nuU">Username</label><input id="nuU" data-af class="inp" autocomplete="off" autocapitalize="none" placeholder="mis. budi.operasional"></div>' +
